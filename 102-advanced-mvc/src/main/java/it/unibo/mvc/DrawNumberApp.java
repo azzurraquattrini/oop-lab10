@@ -2,17 +2,18 @@ package it.unibo.mvc;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Application entry point for DrawNumber game.
  */
 public final class DrawNumberApp implements DrawNumberViewObserver {
-    private static final int MIN = 0;
-    private static final int MAX = 100;
-    private static final int ATTEMPTS = 10;
 
     private final DrawNumber model;
     private final List<DrawNumberView> views;
@@ -23,7 +24,7 @@ public final class DrawNumberApp implements DrawNumberViewObserver {
      * @param views
      *            the views to attach
      */
-    public DrawNumberApp(final DrawNumberView... views) {
+    public DrawNumberApp(final String configurationFile, final DrawNumberView... views) {
         /*
          * Side-effect proof
          */
@@ -32,7 +33,48 @@ public final class DrawNumberApp implements DrawNumberViewObserver {
             view.setObserver(this);
             view.start();
         }
-        this.model = new DrawNumberImpl(MIN, MAX, ATTEMPTS);
+        
+        /**
+         * Configuration
+         */
+        final Configuration.Builder configurationBuilder = new Configuration.Builder();
+        try (BufferedReader contents = new BufferedReader(
+                new InputStreamReader(
+                    Objects.requireNonNull(ClassLoader.getSystemResourceAsStream(configurationFile)),
+                        StandardCharsets.UTF_8))) {
+            
+            String fileLine = contents.readLine();
+            while (fileLine != null) {
+                final String[] lineElements = fileLine.split(":");
+                if (lineElements.length == 2) {
+                    final int value = Integer.parseInt(lineElements[1].trim());
+                    switch (lineElements[0]) {
+                        case "min": 
+                            configurationBuilder.withMin(value);
+                            break;
+                        case "max":
+                            configurationBuilder.withMax(value);
+                            break;
+                        case "attempts":
+                            configurationBuilder.withAttempts(value);
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unknown configuration key: " + lineElements[0]);
+                    }
+                } else {
+                    throw new IllegalArgumentException("Cannot parse line: " + fileLine);
+                }
+                fileLine = contents.readLine();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error reading configuration: " + e.getMessage(), e);
+        }
+
+        final Configuration configuration = configurationBuilder.build();
+        if (!configuration.isConsistent()) {
+            throw new IllegalStateException();
+        }
+        this.model = new DrawNumberImpl(new Configuration.Builder().build());
     }
 
     @Override
@@ -77,7 +119,13 @@ public final class DrawNumberApp implements DrawNumberViewObserver {
      * @throws FileNotFoundException if the configuration file cannot be fetched
      */
     public static void main(final String... args) throws FileNotFoundException {
-        new DrawNumberApp(new DrawNumberViewImpl());
+        new DrawNumberApp(
+            "config.yml",
+            new DrawNumberViewImpl(),
+            new DrawNumberViewImpl(),
+            new PrintStreamView(System.out),
+            new PrintStreamView("output.log")
+        );
     }
 
 }
