@@ -112,6 +112,10 @@ public final class DrawNumberViewImpl implements DrawNumberView {
         observer.resetGame();
     }
 
+    public void displayError(final String message) {
+        JOptionPane.showMessageDialog(frame, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
     private void plainMessage(final String msg) {
         JOptionPane.showMessageDialog(frame, msg, "Result", JOptionPane.PLAIN_MESSAGE);
     }
